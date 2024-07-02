@@ -55,4 +55,5 @@ def panel(storyid, panelid):
     choices = panel_data['dialogue_options'].items()
     links = [{"url": url_for('panel', storyid=storyid, panelid=i), 'text': t}
              for i,t in choices]
+    links.append({"url": url_for('index'), 'text': 'Return to index'})
     return render_template('main.html', body=body, links=links)
