@@ -22,6 +22,8 @@ def index():
               'text': 'Riker (cheating at poker)'},
              {"url": url_for('panel', storyid='jellico', panelid=0),
               'text': 'Jellico (unpaid overtime)'},
+             {"url": url_for('panel', storyid='armus', panelid=0),
+              'text': 'Armus (hostile work environment)'},
              {"url": url_for('panel', storyid='balenciaga', panelid=0),
               'text': 'BONUS EPISODE: The Balenciaga Saga'},
              ]
