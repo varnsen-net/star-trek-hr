@@ -6,7 +6,13 @@ import copy
 
 import dotenv
 
-from src.config.config import SYS_CONTENT, USR_CONTENT, MODEL
+from src.config.config import (SYS_CONTENT,
+                               USR_CONTENT,
+                               MODEL,
+                               NUM_OF_NODES,
+                               STORIES_DIR,
+                               OVERALL_PLOT_TEXT,
+                               TITLE)
 from src.story.graphwriter import StoryGraph
 from src.story.panelwriter import PanelWriter
 
@@ -51,18 +57,24 @@ def build_usr_content_params(node, panel, storyboard, path_to_node):
         current_story_text += f"Player decision: {previous_decision}"
         instructions = "Please continue the story with this panel. "
         if panel["is_leaf"] == True:
-            instructions += "This is the final panel. There are no more player choices, and the story must end with the total destruction of the Enterprise, caused by the player character submitting the wrong paperwork."
+            instructions += "This is the final panel. There are no more player choices, and the story must end with the total destruction of the Enterprise, caused by the player character's previous action."
     return current_story_text, instructions
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
 
-    graph = StoryGraph(30)
+    # let users regenerate the story graph
+    graph = StoryGraph(NUM_OF_NODES)
     graph.print_graph()
+    while True:
+        regenerate = input("Regenerate the story graph? (y/n): ")
+        if regenerate.lower() == "y":
+            graph = StoryGraph(30)
+            graph.print_graph()
+        else:
+            break
     storyboard = graph.generate_storyboard_json()
     writer = PanelWriter(MODEL)
-
-    overall_plot_text = "The player character -- a human HR officer, Lt Kel Varnsen -- has noticed a disturbing trend among the senior officers: many of them have begun wearing Balenciaga."
 
     for node, panel in storyboard.items():
         print(f"Node: {node}")
@@ -73,7 +85,7 @@ if __name__ == "__main__":
             panel,
             storyboard,
             path_to_node)
-        usr_content = USR_CONTENT.format(overall_plot_text=overall_plot_text,
+        usr_content = USR_CONTENT.format(overall_plot_text=OVERALL_PLOT_TEXT,
                                          current_story_text=current_story_text,
                                          instructions=instructions)
         tools = writer.build_tools_param(n)
@@ -87,5 +99,5 @@ if __name__ == "__main__":
         vals = player_options.values()
         storyboard[node]["dialogue_options"] = dict(zip(keys, vals))
 
-    with open("riker.json", "w") as f:
+    with open(STORIES_DIR / f"{TITLE}.json", "w") as f:
         json.dump(storyboard, f, indent=4)

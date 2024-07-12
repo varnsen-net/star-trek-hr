@@ -15,7 +15,7 @@ def index():
     """
     body = "Which incident would you like to report?"
     links = [{"url": url_for('panel', storyid='lwaxana', panelid=0),
-              'text': 'Lwaxana (sexual harassment)'},
+              'text': 'Lwaxana (harassment)'},
              {"url": url_for('panel', storyid='q', panelid=0),
               'text': 'Q (trolling, latently sexual)'},
              {"url": url_for('panel', storyid='riker', panelid=0),

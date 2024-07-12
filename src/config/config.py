@@ -7,6 +7,8 @@ DATA_DIR = PROJECT_WD / "data"
 """Absolute path to the data directory."""
 SRC_DIR = PROJECT_WD / "src"
 """Absolute path to the source code directory."""
+STORIES_DIR = PROJECT_WD / "webapp" / "static" / "stories"
+"""Absolute path to the stories repository directory."""
 
 # GPT
 MODEL = "gpt-4o"
@@ -15,7 +17,7 @@ SYS_CONTENT = """You are a story generating bot for a text adventure game based 
 
 You are tasked with writing the panel text and player options for the game. You will be given information about the overall plot, as well as the previous panel texts and player choices. Use this information to create the next panel.
 
-In these stories, the player character is Captain Picard, and he is attempting to successfully file a complaint with the Human Resources department of the USS Enterprise. The player choices should be absurdly banal and bureaucratic.
+In these stories, the player character is attempting to successfully file a complaint with the Human Resources department of the USS Enterprise. The player choices should be absurdly banal and bureaucratic.
 """
 """The system content to use for the GPT API."""
 USR_CONTENT = """Overall plot: {overall_plot_text}
@@ -29,6 +31,16 @@ This is the story leading to the current panel:
 {instructions}
 """
 """The user content to use for the GPT API."""
+
+
+# Story Generation
+NUM_OF_NODES = 30
+"""The number of nodes to generate in the story."""
+TITLE = "lwaxana"
+"""The title of the story. Will really only be used as the filename."""
+OVERALL_PLOT_TEXT = "The player character -- Captain Picard -- is attempting to file an HR complaint against Lwaxana Troi for sexual harassment during the events of the episode 'Manhunt'. Do not mention the episode by name."
+"""The overall plot of the story."""
+
 
 # Misc
 HAND_CRAFTED_DIALOGUE = [
