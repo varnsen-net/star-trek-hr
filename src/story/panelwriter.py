@@ -1,111 +1,92 @@
 """Helper class for generating story text using OpenAI API."""
 
-import copy
+import os
+import time
+from typing import Annotated
 
-from openai import OpenAI
+from google import genai
+from google.genai import types
+from pydantic import BaseModel, create_model, Field
 
 
+def build_response_schema(n):
+    """Build a response schema for the LLM response.
 
-class PanelWriter:
-    """Generates story text using OpenAI API.
-    
-    :attr OpenAI client: OpenAI API client.
+    :param int n: The number of options to generate.
+    :return: A Pydantic model representing the response schema.
+    :rtype: pydantic.BaseModel
     """
+    model_params = {
+        "body": Annotated[str, Field(
+            description="The text to display in the panel. Max length: 400 words.",
+            max_length=400,
+        )],
+    }
+    for i in range(n):
+        model_params[f"option_{i}"] = Annotated[str, Field(
+            description=f"Option {i+1} for the player to choose. Max length: up to 100 words.",
+            max_length=100,
+        )]
+    return create_model("Panel", **model_params)
 
-    TOOLS_TEMPLATE = [
-      {
-        "type": "function",
-        "function": {
-          "name": "write_panel",
-          "description": "Write the panel text and player options for a text adventure game.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "body": {
-                "type": "string",
-                  "description": "The text to display in the panel. Length: 100-200 words.",
-              },
-            },
-            "required": ["body"],
-          },
-        }
-      }
-    ]
 
-    def __init__(self, model):
-        """Initialize a new PanelWriter object."""
-        self.client = OpenAI()
-        self.model = model
+def fetch_llm_response(sys_content, usr_content, response_schema):
+    """Fetch a response from the LLM.
 
-    def build_tools_param(self, n):
-        """Build the tools parameter for the GPT function-calling feature.
-        
-        :param int n: Number of player choices to generate.
-        :param list[dict] tools: List of tools to modify.
-        :return: Modified tools list.
-        :rtype: list[dict]
-        """
-        tools = copy.deepcopy(self.TOOLS_TEMPLATE)
-        for choice in range(n):
-            property = {
-                "type": "string",
-                "description": f"The text to display for choice number {choice}.",
-            }
-            tools[0]["function"]["parameters"]["properties"][f"choice_{choice}"] = property
-            tools[0]["function"]["parameters"]["required"].append(f"choice_{choice}")
-        return tools
+    :param str sys_content: The system content to provide to the LLM.
+    :param str usr_content: The user content to provide to the LLM.
+    :param pydantic.BaseModel response_schema: The response schema to use for
+        the LLM response.
+    :return: The LLM response.
+    :rtype: google.genai.types.GenerateContentResponse
+    """
+    client = genai.Client(api_key=os.getenv("LLM_KEY"))
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=usr_content,
+        config=types.GenerateContentConfig(
+            system_instruction=sys_content,
+            response_mime_type='application/json',
+            response_schema=list[response_schema]),
+    )
+    time.sleep(2) # Avoid rate limit on free plan
+    return response
 
-    def fetch_chatgpt_response(self, sys_content, usr_content, tools):
-        """Fetch a response from the ChatGPT model.
-        
-        :param str sys_content: System message content.
-        :param str usr_content: User message content.
-        :param list[dict] tools: List of tools to modify.
-        :return: Response from the ChatGPT model.
-        :rtype: dict
-        """
-        messages = [{"role": "system", "content": sys_content},
-                    {"role": "user", "content": usr_content}]
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=tools,
-            tool_choice="required"
-        )
-        return response
+def fetch_and_jsonify(sys_content, usr_content, response_schema,
+                      max_retries=10):
+    """Fetch a response from the LLM and convert it to a JSON object.
 
-    def fetch_and_jsonify(self, sys_content, usr_content, tools,
-                          max_retries=10):
-        """Fetch a response from the ChatGPT model and jsonify it.
-        
-        Function calling sometimes fails because chatgpt does not return a
-        string that can be turned into a dictionary.
-        """
-        for _ in range(max_retries):
-            try:
-                response = self.fetch_chatgpt_response(sys_content, usr_content, tools)
-                resp_str = response.choices[0].message.tool_calls[0].function.arguments
-                resp_dict = eval(resp_str)
-                return resp_dict
-            except SyntaxError:
-                continue
-        raise ValueError("Failed to jsonify response after 10 retries.")
+    :param str sys_content: The system content to provide to the LLM.
+    :param str usr_content: The user content to provide to the LLM.
+    :param pydantic.BaseModel response_schema: The response schema to use for
+        the LLM response.
+    :param int max_retries: The maximum number of retries to attempt if the
+        response cannot be converted to JSON.
+    :return: The LLM response as a JSON object.
+    :rtype: dict
+    """
+    for _ in range(max_retries):
+        try:
+            response = fetch_llm_response(sys_content, usr_content,
+                                          response_schema)
+            resp_dict = eval(response.text)
+            return resp_dict
+        except SyntaxError:
+            continue
+    raise ValueError("Failed to jsonify response after 10 retries.")
 
 
 if __name__ == "__main__":
-    import os
+    from dotenv import load_dotenv
 
-    import dotenv
+    load_dotenv('./.env')
 
-    import src.config.config as config
+    sys_content = """You are a story generating bot for a text adventure game based on star trek the next generation.
 
-    dotenv.load_dotenv()
-
-    sys_content = config.SYS_CONTENT
+    You are tasked with writing the panel text and player options for the game. You will be given information about the overall plot, as well as the previous panel texts and player choices. Use this information to create the next panel.
+    """
     usr_content = """The overall story is that Data is trying to file an HR complaint against Riker for cheating during poker. The previous panel text was: 'Data walks into the HR office and asks to see the HR officer in charge.' The previous player choice was: 'Data hands the HR officer a 200 page report on Riker's cheating."""
 
-    writer = PanelWriter(config.MODEL)
-    tools = writer.build_tools_param(5)
-    response = writer.fetch_chatgpt_response(sys_content, usr_content, tools)
-    print(response.choices[0].finish_reason)
-    print(response.choices[0].message.tool_calls[0].function.arguments)
+    response_schema = build_response_schema(3)
+    response = fetch_and_jsonify(sys_content, usr_content, response_schema)
+    print(response[0])

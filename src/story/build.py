@@ -1,20 +1,10 @@
 """Builds a full story ready to be consumed by the Flask app."""
 
 import json
-import random
 import copy
 
-import dotenv
-
-from src.config.config import (SYS_CONTENT,
-                               USR_CONTENT,
-                               MODEL,
-                               NUM_OF_NODES,
-                               STORIES_DIR,
-                               OVERALL_PLOT_TEXT,
-                               TITLE)
 from src.story.graphwriter import StoryGraph
-from src.story.panelwriter import PanelWriter
+from src.story.panelwriter import build_response_schema, fetch_and_jsonify
 
 
 def build_current_story_text(storyboard, path_to_node):
@@ -61,7 +51,16 @@ def build_usr_content_params(node, panel, storyboard, path_to_node):
     return current_story_text, instructions
 
 if __name__ == "__main__":
-    dotenv.load_dotenv()
+    from dotenv import load_dotenv
+    from src.config.config import (PROJECT_WD,
+                                   SYS_CONTENT,
+                                   USR_CONTENT,
+                                   NUM_OF_NODES,
+                                   STORIES_DIR,
+                                   OVERALL_PLOT_TEXT,
+                                   TITLE)
+
+    load_dotenv(PROJECT_WD / ".env")
 
     # let users regenerate the story graph
     graph = StoryGraph(NUM_OF_NODES)
@@ -69,12 +68,11 @@ if __name__ == "__main__":
     while True:
         regenerate = input("Regenerate the story graph? (y/n): ")
         if regenerate.lower() == "y":
-            graph = StoryGraph(30)
+            graph = StoryGraph(NUM_OF_NODES)
             graph.print_graph()
         else:
             break
     storyboard = graph.generate_storyboard_json()
-    writer = PanelWriter(MODEL)
 
     for node, panel in storyboard.items():
         print(f"Node: {node}")
@@ -88,15 +86,13 @@ if __name__ == "__main__":
         usr_content = USR_CONTENT.format(overall_plot_text=OVERALL_PLOT_TEXT,
                                          current_story_text=current_story_text,
                                          instructions=instructions)
-        tools = writer.build_tools_param(n)
-        response_args = writer.fetch_and_jsonify(SYS_CONTENT, usr_content, tools)
+        response_schema = build_response_schema(n)
+        response = fetch_and_jsonify(SYS_CONTENT, usr_content, response_schema)[0]
         # finish_reason = response.choices[0].finish_reason
-        body = response_args["body"]
-        player_options = copy.deepcopy(response_args)
-        del player_options["body"]
+        body = response.pop("body")
         storyboard[node]["paragraph_text"] = body
         keys = storyboard[node]["dialogue_options"].keys()
-        vals = player_options.values()
+        vals = response.values() # remaining values are the dialogue options
         storyboard[node]["dialogue_options"] = dict(zip(keys, vals))
 
     with open(STORIES_DIR / f"{TITLE}.json", "w") as f:

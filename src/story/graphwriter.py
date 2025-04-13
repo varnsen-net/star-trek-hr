@@ -19,7 +19,7 @@ class StoryGraph:
         :param int n: number of nodes in the graph
         """
         self.n = n
-        self.tree = nx.random_tree(n, create_using=nx.DiGraph)
+        self.tree = nx.random_labeled_tree(n)
 
     @property
     def edge_list(self):
@@ -50,7 +50,7 @@ class StoryGraph:
 
     def print_graph(self):
         """Print the graph as a string."""
-        print(nx.forest_str(self.tree, sources=[0]))
+        print(nx.write_network_text(self.tree, sources=[0]))
 
     def get_path_to_node(self, node):
         """Get the path from the root node to a given node.
